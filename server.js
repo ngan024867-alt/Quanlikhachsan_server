@@ -22,9 +22,14 @@ app.use(morgan('combined'));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(cors({
-  origin: ['http://localhost:3000'],
+  origin: [
+    "http://localhost:3000",
+    "https://quanlikhachsanclients-aqdxykuky-ngan024867-alts-projects.vercel.app"
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true
 }));
+
 
 const User = require("./models/User");
 const bcrypt = require("bcryptjs");
