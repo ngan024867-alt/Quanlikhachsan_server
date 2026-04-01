@@ -22,14 +22,19 @@ app.use(morgan('combined'));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(cors({
-  origin: [
-    "http://localhost:3000",
-    "https://quanlikhachsanclients.vercel.app"
-  ],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // cho phép request không có origin (ví dụ từ server)
+    if (
+      origin === "http://localhost:3000" ||
+      origin.endsWith(".vercel.app")
+    ) {
+      return callback(null, true);
+    }
+    callback(new Error("Not allowed by CORS"));
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true
 }));
-
 
 const User = require("./models/User");
 const bcrypt = require("bcryptjs");
