@@ -24,7 +24,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    "https://quanlikhachsanclients-5pmnmib7m-ngan024867-alts-projects.vercel.app"
+    "https://quanlikhachsanclients.vercel.app"
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true
