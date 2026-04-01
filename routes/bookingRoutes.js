@@ -5,8 +5,11 @@ const { authMiddleware, adminMiddleware } = require("../middleware/authMiddlewar
 const router = express.Router();
 
 // Đặt phòng (user)
-// Đặt phòng (user)
+const { bookingSchema } = require('../middleware/validation');
 router.post("/", authMiddleware, async (req, res) => {
+  const { error } = bookingSchema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.details[0].message });
+
   try {
     const { room, checkin, checkout, services } = req.body;
 

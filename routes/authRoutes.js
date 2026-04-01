@@ -1,31 +1,34 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const nodemailer = require("nodemailer");
 const User = require("../models/User");
 
 const router = express.Router();
 
-// Đăng ký (thêm email)
+// Helper for JWT secret
+const getJWTSecret = () => process.env.JWT_SECRET || "hotel-secret-2024";
+
+// Đăng ký
 router.post("/register", async (req, res) => {
   try {
     const { username, email, password } = req.body;
     if (!username || !email || !password) {
-      return res.status(400).json({ error: "Thiếu thông tin đăng ký" });
+      return res.status(400).json({ error: "Thiếu thông tin" });
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ $or: [{ username }, { email }] });
     if (existingUser) {
-      return res.status(400).json({ error: "Email đã được sử dụng" });
+      return res.status(400).json({ error: "Username/Email đã tồn tại" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ username, email, password: hashedPassword });
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const user = new User({ username, email, password: hashedPassword, role: "user", lockAttempts: 0, locked: false });
     await user.save();
 
     res.json({ message: "Đăng ký thành công" });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error("Register error:", err);
+    res.status(500).json({ error: "Lỗi đăng ký" });
   }
 });
 
@@ -33,55 +36,35 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: "Thiếu thông tin đăng nhập" });
+    }
+
     const user = await User.findOne({ username });
-    if (!user) return res.status(400).json({ error: "Sai tài khoản" });
+    if (!user) return res.status(400).json({ error: "Không tìm thấy tài khoản" });
+    if (user.locked) return res.status(400).json({ error: "Tài khoản đã bị khóa" });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ error: "Sai mật khẩu" });
+    if (!isMatch) {
+      const attempts = (user.lockAttempts || 0) + 1;
+      const locked = attempts >= 5;
+      await User.updateOne({ _id: user._id }, { $set: { lockAttempts: attempts, locked } });
+      return res.status(400).json({ error: "Sai mật khẩu" });
+    }
+
+    // Reset lock attempts khi đăng nhập đúng
+    await User.updateOne({ _id: user._id }, { $set: { lockAttempts: 0 } });
 
     const token = jwt.sign(
-      { id: user._id, role: user.role, username: user.username },
-      process.env.JWT_SECRET,
+      { id: user._id, role: user.role },
+      getJWTSecret(),
       { expiresIn: "1d" }
     );
 
-    res.json({ token, role: user.role });
+    res.json({ token, role: user.role, userId: user._id });
   } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// Quên mật khẩu: nhập email, tạo mật khẩu ngẫu nhiên và gửi vào mail
-router.post("/forgot", async (req, res) => {
-  try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ error: "Không tìm thấy user" });
-
-    // Tạo mật khẩu ngẫu nhiên
-    const newPassword = Math.random().toString(36).slice(-8);
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
-
-    // Gửi email cho người dùng
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER, // email gửi
-        pass: process.env.EMAIL_PASS  // mật khẩu ứng dụng
-      }
-    });
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Reset mật khẩu Hotel Management",
-      text: `Mật khẩu mới của bạn là: ${newPassword}`
-    });
-
-    res.json({ message: "Mật khẩu mới đã được gửi vào email của bạn" });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Lỗi đăng nhập" });
   }
 });
 

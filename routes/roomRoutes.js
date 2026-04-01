@@ -1,5 +1,7 @@
 const express = require("express");
 const Room = require("../models/Room");
+const { authMiddleware, adminMiddleware } = require("../middleware/authMiddleware");
+const validation = require("../middleware/validation");
 const router = express.Router();
 
 // Lấy danh sách phòng
@@ -9,7 +11,10 @@ router.get("/", async (req, res) => {
 });
 
 // Thêm phòng (admin)
-router.post("/", async (req, res) => {
+router.post("/", authMiddleware, adminMiddleware, async (req, res) => {
+  const { error } = validation.roomSchema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.details[0].message });
+
   try {
     const room = new Room(req.body);
     await room.save();
