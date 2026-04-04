@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const roomSchema = new mongoose.Schema({
   number: { type: String, required: true, unique: true },
-  type: { type: String, required: true, enum: ['Standard', 'Deluxe', 'Suite', 'VIP'] },
+  type: { type: String, required: true, enum: ['Standard', 'Deluxe', 'Suite', 'Vip'] },
   price: { type: Number, required: true, min: 0 },
   status: { type: String, enum: ["available", "booked", "maintenance"], default: "available" },
   images: [{ type: String }],
